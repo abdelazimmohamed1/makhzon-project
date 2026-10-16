@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="مخزون: واجهة لوحة تحكم لإدارة مخزون ومبيعات معرض أجهزة كهربائية (مشروع تعليمي ببيانات تجريبية)."
+    />
+    <meta name="theme-color" content="#4f83ff" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f83ff'/%3E%3Cpath d='M8 12l8-4 8 4v9l-8 4-8-4z' fill='none' stroke='%23fff' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+    <script>
+      var t = localStorage.getItem("makhzon-theme") || "dark";
+      document.documentElement.dataset.theme = t;
+      document.documentElement.setAttribute("data-bs-theme", t);
+    </script>
+    <title>مخزون | إدارة معرض الأجهزة الكهربائية</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">تخطي إلى المحتوى</a>
+    <div class="app-layout">
+      <div class="sidebar-overlay" id="overlay"></div>
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="#"
+          ><span class="brand-icon"><i class="bi bi-box-seam"></i></span>
+          مخزون<span class="brand-dot">.</span></a
+        >
+        <div class="sidebar-label">القائمة الرئيسية</div>
+        <nav class="nav-menu">
+          <button
+            class="side-link active"
+            aria-current="page"
+            data-page="dashboard"
+          >
+            <i class="bi bi-grid-1x2"></i> لوحة التحكم
+          </button>
+          <button class="side-link" data-page="products">
+            <i class="bi bi-boxes"></i> المنتجات
+          </button>
+          <button class="side-link" data-page="inventory">
+            <i class="bi bi-clipboard-data"></i> حركة المخزون
+          </button>
+          <button class="side-link" data-page="sales">
+            <i class="bi bi-cart3"></i> المبيعات
+          </button>
+          <button class="side-link" data-page="invoices">
+            <i class="bi bi-receipt"></i> الفواتير
+          </button>
+          <button class="side-link" data-page="customers">
+            <i class="bi bi-people"></i> العملاء
+          </button>
+          <button class="side-link" data-page="reports">
+            <i class="bi bi-bar-chart-line"></i> التقارير
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="store-avatar">م</div>
+          <div>
+            <strong>معرض الأجهزة</strong><small>نظام إدارة المخزون</small>
+          </div>
+        </div>
+      </aside>
+      <main class="main-area" id="main">
+        <header class="topbar">
+          <div class="d-flex align-items-center gap-3">
+            <button
+              class="icon-btn mobile-menu"
+              id="menuBtn"
+              aria-expanded="false"
+              aria-controls="sidebar"
+              aria-label="فتح القائمة"
+            >
+              <i class="bi bi-list"></i>
+            </button>
+            <div>
+              <h1 class="page-title" id="pageTitle">لوحة التحكم</h1>
+              <p class="page-subtitle" id="pageSubtitle">
+                أهلاً بيك، دي نظرة عامة على المعرض.
+              </p>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <span class="today-date" id="todayDate"></span
+            ><button
+              class="icon-btn"
+              id="themeToggle"
+              aria-label="تغيير المظهر"
+            >
+              <i class="bi bi-sun-fill"></i>
+            </button>
+          </div>
+        </header>
+        <section class="page-content" id="view" aria-live="polite"></section>
+        <footer class="app-footer">
+          مخزون © <span id="currentYear"></span> — نظام إدارة المعرض
+        </footer>
+      </main>
+    </div>
+    <div class="modal fade" id="appModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 class="modal-title fs-5"></h2>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="إغلاق"
+            ></button>
+          </div>
+          <div class="modal-body"></div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              data-bs-dismiss="modal"
+            >
+              إغلاق</button
+            ><button
+              type="button"
+              class="btn btn-primary"
+              id="modalSave"
+            ></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="toast" role="status"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
