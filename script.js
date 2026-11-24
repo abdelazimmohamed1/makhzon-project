@@ -11,10 +11,14 @@ let db,
   cart = [],
   cartCust = "",
   current = "dashboard",
-  chart;
+  chart,
+  qs = "",
+  pcat = "",
+  psort = "name";
 
 /* ---------- helpers ---------- */
-const money = (n) => Number(n || 0).toLocaleString("en-US") + " ج.م";
+const money = (n) =>
+  Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 2 }) + " ج.م";
 const esc = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
@@ -47,11 +51,34 @@ const sum = (list, fn) => list.reduce((s, x) => s + fn(x), 0);
 const save = () => localStorage.setItem(KEY, JSON.stringify(db));
 const done = () => db.invoices.filter((i) => i.status === "done");
 const custName = (id) => (find(db.customers, id) || { name: "عميل نقدي" }).name;
+const invCust = (i) => find(db.customers, i.cid)?.name || i.cname || "عميل نقدي";
+const clean = (v) => (Array.isArray(v) ? v : []);
 const avail = (p) => p.qty - (cart.find((c) => c.pid === p.id)?.qty || 0);
 const commit = (msg) => {
   save();
   show(current);
   toast(msg);
+};
+
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const csvCell = (v) => {
+  let t = String(v ?? "");
+  if (/^[=+\-@]/.test(t)) t = "'" + t;
+  return '"' + t.replace(/"/g, '""') + '"';
+};
+const toCsv = (rows) => "\ufeff" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 5 ? "سهران لسه؟" : h < 12 ? "صباح الفل" : h < 17 ? "يومك سعيد" : "مساء الخير";
 };
 
 function toast(msg, bad) {
@@ -87,6 +114,7 @@ function sell(cid, lines, date = dayISO()) {
     id: uid(),
     no: ++db.seq,
     cid,
+    cname: custName(cid),
     date,
     items,
     status: "done",
@@ -163,12 +191,22 @@ function seedDb() {
     ),
   );
 }
-try {
-  db = JSON.parse(localStorage.getItem(KEY));
-} catch {
-  db = null;
+function loadDb() {
+  let d;
+  try {
+    d = JSON.parse(localStorage.getItem(KEY));
+  } catch {
+    d = null;
+  }
+  if (!d || typeof d !== "object" || !Array.isArray(d.products)) return null;
+  d.invoices = clean(d.invoices);
+  d.moves = clean(d.moves);
+  d.customers = clean(d.customers);
+  d.seq = Number(d.seq) || 1000;
+  return d;
 }
-if (!db || !db.products) {
+db = loadDb();
+if (!db) {
   seedDb();
   save();
 }
@@ -186,7 +224,12 @@ const rowBtns = (kind, id) =>
 const stat = (label, icon, color, value, note) =>
   `<div class="col-12 col-sm-6 col-xl-3"><div class="stat-card"><div class="stat-top">${label}<span class="stat-icon ${color}"><i class="bi bi-${icon}"></i></span></div><div class="stat-value">${value}</div><div class="stat-note">${note}</div></div></div>`;
 const stockPill = (p) =>
-  `<span class="stock-count ${p.qty <= 0 ? "danger" : p.qty <= p.min ? "warning" : "ok"}">${p.qty} قطعة</span>`;
+  `<span class="stock-count ${p.qty <= 0 ? "danger" : p.qty <= p.min ? "warning" : "ok"}">${p.qty <= 0 ? "نفد" : p.qty + " قطعة"}</span>`;
+const stockBar = (p) => {
+  const top = Math.max(p.min * 3, p.qty, 1);
+  const w = Math.min(100, Math.round((Math.max(p.qty, 0) / top) * 100));
+  return `<div class="stock-bar" aria-hidden="true"><span class="${p.qty <= 0 ? "danger" : p.qty <= p.min ? "warning" : "ok"}" style="width:${w}%"></span></div>`;
+};
 const pill = (i) =>
   `<span class="status-pill ${i.status === "done" ? "success" : "danger"}">${i.status === "done" ? "مكتملة" : "ملغاة"}</span>`;
 const fields = (list, v = {}) =>
@@ -228,18 +271,19 @@ const invTable = (list, acts) =>
     ),
     list.map(
       (i) =>
-        `<tr><td>#${i.no}</td><td>${esc(custName(i.cid))}</td><td>${fmtDate(i.date)}</td><td>${money(i.total)}</td><td>${pill(i)}</td>${acts ? `<td class="text-end"><button class="icon-btn sm" data-act="view" data-id="${i.id}" aria-label="عرض"><i class="bi bi-eye"></i></button> ${i.status === "done" ? `<button class="icon-btn sm" data-act="cancel" data-id="${i.id}" aria-label="إلغاء"><i class="bi bi-x-circle"></i></button>` : ""}</td>` : ""}</tr>`,
+        `<tr><td>#${i.no}</td><td>${esc(invCust(i))}</td><td>${fmtDate(i.date)}</td><td>${money(i.total)}</td><td>${pill(i)}</td>${acts ? `<td class="text-end"><button class="icon-btn sm" data-act="view" data-id="${i.id}" aria-label="عرض"><i class="bi bi-eye"></i></button> ${i.status === "done" ? `<button class="icon-btn sm" data-act="cancel" data-id="${i.id}" aria-label="إلغاء"><i class="bi bi-x-circle"></i></button>` : ""}</td>` : ""}</tr>`,
     ),
   );
 
 const PF = [
   ["name", "اسم المنتج"],
   ["cat", "التصنيف"],
-  ["price", "سعر البيع", "number", 'required min="0"'],
-  ["cost", "سعر التكلفة", "number", 'required min="0"'],
-  ["qty", "الكمية", "number", 'required min="0"'],
-  ["min", "حد التنبيه", "number", 'required min="0"'],
+  ["price", "سعر البيع", "number", 'required min="0" step="any"'],
+  ["cost", "سعر التكلفة", "number", 'required min="0" step="any"'],
+  ["qty", "الكمية", "number", 'required min="0" step="1"'],
+  ["min", "حد التنبيه", "number", 'required min="0" step="1"'],
 ];
+const PFE = PF.filter((f) => f[0] !== "qty");
 const CF = [
   ["name", "اسم العميل"],
   ["phone", "رقم الهاتف", "tel"],
@@ -257,7 +301,7 @@ const pages = {
       const low = db.products
         .filter((p) => p.qty <= p.min)
         .sort((a, b) => a.qty - b.qty);
-      return `<div class="welcome-banner"><div><span class="welcome-tag">ملخص المعرض</span><h2>كل حاجة تحت السيطرة.</h2><p>تابع مخزونك ومبيعاتك من مكان واحد.</p></div><div class="welcome-icon"><i class="bi bi-shop"></i></div></div>
+      return `<div class="welcome-banner"><div><span class="welcome-tag">ملخص المعرض</span><h2>${greeting()} يا معلم 👋</h2><p>${low.length ? `فيه ${low.length} صنف محتاج تشتريه قريب.` : "كل حاجة تحت السيطرة، ولا يهمك."}</p></div><div class="welcome-icon"><i class="bi bi-shop"></i></div></div>
       <div class="row g-3 mb-3">${stat("إجمالي المنتجات", "box-seam", "blue", db.products.length, "منتج مسجل")}
       ${stat(
         "مبيعات اليوم",
@@ -279,7 +323,7 @@ const pages = {
           .slice(0, 5)
           .map(
             (p) =>
-              `<div class="stock-item"><div class="product-symbol"><i class="bi bi-box-seam"></i></div><div class="stock-info"><strong>${esc(p.name)}</strong><small>${esc(p.cat)}</small></div>${stockPill(p)}</div>`,
+              `<div class="stock-item"><div class="product-symbol"><i class="bi bi-box-seam"></i></div><div class="stock-info"><strong>${esc(p.name)}</strong><small>${esc(p.cat)}</small></div>${stockPill(p)}<button class="icon-btn sm" data-act="restock" data-id="${p.id}" aria-label="إضافة كمية" title="إضافة كمية"><i class="bi bi-plus-lg"></i></button></div>`,
           )
           .join("") || `<p class="text-secondary">كل المنتجات كميتها كافية.</p>`
       }</div><button class="outline-btn w-100 mt-3" data-page="inventory">عرض حركة المخزون</button></div></div></div>
@@ -289,19 +333,39 @@ const pages = {
   products: {
     title: "المنتجات",
     sub: "إدارة أجهزة المعرض وأسعارها وكمياتها.",
-    render: () =>
-      panel(
+    render() {
+      const cats = [...new Set(db.products.map((p) => p.cat).filter(Boolean))];
+      if (pcat && !cats.includes(pcat)) pcat = "";
+      const list = db.products
+        .filter((p) => !pcat || p.cat === pcat)
+        .sort((a, b) =>
+          psort === "qty"
+            ? a.qty - b.qty
+            : psort === "price"
+              ? b.price - a.price
+              : a.name.localeCompare(b.name, "ar"),
+        );
+      const chips =
+        `<div class="chips"><button class="chip ${pcat ? "" : "on"}" data-act="pcat" data-id="">الكل</button>` +
+        cats
+          .map((c) => `<button class="chip ${pcat === c ? "on" : ""}" data-act="pcat" data-id="${esc(c)}">${esc(c)}</button>`)
+          .join("") +
+        `</div>`;
+      const sortSel = `<select id="ps" class="form-select form-select-sm sort-select" aria-label="ترتيب"><option value="name" ${psort === "name" ? "selected" : ""}>ترتيب بالاسم</option><option value="qty" ${psort === "qty" ? "selected" : ""}>الأقل كمية أولاً</option><option value="price" ${psort === "price" ? "selected" : ""}>الأغلى أولاً</option></select>`;
+      return panel(
         "قائمة المنتجات",
-        `${db.products.length} منتج`,
-        searchBox + addBtn("add", "منتج جديد", "products"),
-        table(
-          ["المنتج", "التصنيف", "السعر", "التكلفة", "المخزون", ""],
-          db.products.map(
-            (p) =>
-              `<tr><td>${esc(p.name)}</td><td>${esc(p.cat)}</td><td>${money(p.price)}</td><td>${money(p.cost)}</td><td>${stockPill(p)}</td><td class="text-end">${rowBtns("products", p.id)}</td></tr>`,
+        `${list.length} منتج`,
+        searchBox + sortSel + `<button class="outline-btn" data-act="csv" data-id="products"><i class="bi bi-download"></i> CSV</button>` + addBtn("add", "منتج جديد", "products"),
+        chips +
+          table(
+            ["المنتج", "التصنيف", "السعر", "التكلفة", "المخزون", ""],
+            list.map(
+              (p) =>
+                `<tr><td>${esc(p.name)}</td><td>${esc(p.cat)}</td><td>${money(p.price)}</td><td>${money(p.cost)}</td><td>${stockPill(p)}${stockBar(p)}</td><td class="text-end">${rowBtns("products", p.id)}</td></tr>`,
+            ),
           ),
-        ),
-      ),
+      );
+    },
   },
   inventory: {
     title: "حركة المخزون",
@@ -366,7 +430,7 @@ const pages = {
       panel(
         "كل الفواتير",
         `${db.invoices.length} فاتورة`,
-        searchBox,
+        searchBox + `<button class="outline-btn" data-act="csv" data-id="invoices"><i class="bi bi-download"></i> CSV</button>`,
         invTable(db.invoices, true),
       ),
   },
@@ -408,7 +472,7 @@ const pages = {
       ${panel(
         "الأكثر مبيعًا",
         "حسب الكمية المباعة",
-        `<button class="outline-btn" data-act="reset">إعادة ضبط البيانات التجريبية</button>`,
+        `<button class="outline-btn" data-act="backup"><i class="bi bi-cloud-arrow-down"></i> نسخة احتياطية</button><button class="outline-btn" data-act="restoreBtn"><i class="bi bi-cloud-arrow-up"></i> استرجاع</button><input type="file" id="restoreFile" accept="application/json,.json" hidden><button class="outline-btn" data-act="reset">إعادة ضبط البيانات التجريبية</button>`,
         table(
           ["المنتج", "الكمية المباعة", "الإيراد"],
           Object.entries(top)
@@ -428,12 +492,21 @@ const pages = {
 function editEntity(kind, id) {
   const d = defs[kind],
     item = id ? find(db[kind], id) : { ...d.d };
-  openModal((id ? "تعديل " : "إضافة ") + d.n, fields(d.f, item), () => {
+  const isEditProduct = id && kind === "products";
+  const hint = isEditProduct
+    ? `<p class="form-hint">الكمية الحالية: <b>${item.qty}</b>. لتغيير الكمية استخدم "تسجيل حركة" في صفحة حركة المخزون عشان تتسجل في السجل.</p>`
+    : "";
+  openModal((id ? "تعديل " : "إضافة ") + d.n, fields(isEditProduct ? PFE : d.f, item) + hint, () => {
     const f = $("form", modalEl);
     if (!f.reportValidity()) return false;
     const data = readForm(f);
     if (id) Object.assign(item, data);
-    else db[kind].push({ id: uid(), ...data });
+    else {
+      const row = { id: uid(), ...data };
+      db[kind].push(row);
+      if (kind === "products" && row.qty > 0)
+        db.moves.unshift({ id: uid(), date: dayISO(), pid: row.id, type: "in", qty: row.qty, note: "رصيد افتتاحي" });
+    }
     commit(id ? "تم حفظ التعديلات" : "تمت الإضافة");
   });
 }
@@ -441,7 +514,7 @@ function viewInvoice(id) {
   const i = find(db.invoices, id);
   openModal(
     `فاتورة #${i.no}`,
-    `<p class="text-secondary">${esc(custName(i.cid))} — ${fmtDate(i.date)} — ${pill(i)}</p>` +
+    `<p class="text-secondary">${esc(invCust(i))} — ${fmtDate(i.date)} — ${pill(i)}</p>` +
       table(
         ["المنتج", "الكمية", "السعر", "الإجمالي"],
         i.items.map(
@@ -449,22 +522,26 @@ function viewInvoice(id) {
             `<tr><td>${esc(l.name)}</td><td>${l.qty}</td><td>${money(l.price)}</td><td>${money(l.qty * l.price)}</td></tr>`,
         ),
       ) +
-      `<div class="fw-bold mt-3">الإجمالي: ${money(i.total)}</div>`,
+      `<div class="fw-bold mt-3">الإجمالي: ${money(i.total)}</div><button type="button" class="outline-btn mt-3 no-print" data-print><i class="bi bi-printer"></i> طباعة</button>`,
   );
 }
 const actions = {
   add: (_, b) => editEntity(b.dataset.kind),
   edit: (id, b) => editEntity(b.dataset.kind, id),
   del(id, b) {
-    if (!confirm("متأكد من الحذف؟")) return;
+    const msg =
+      b.dataset.kind === "customers"
+        ? "متأكد من الحذف؟ الفواتير القديمة هتفضل محتفظة باسمه."
+        : "متأكد من الحذف؟ الفواتير والحركات القديمة هتفضل في السجل، بس مش هترجع كمياتها للمخزون لو اتلغت.";
+    if (!confirm(msg)) return;
     db[b.dataset.kind] = db[b.dataset.kind].filter((x) => x.id !== id);
     commit("تم الحذف");
   },
-  move() {
+  move(pid) {
     const opts = db.products
       .map(
         (p) =>
-          `<option value="${p.id}">${esc(p.name)} — المتاح ${p.qty}</option>`,
+          `<option value="${p.id}" ${p.id === pid ? "selected" : ""}>${esc(p.name)} — المتاح ${p.qty}</option>`,
       )
       .join("");
     if (!opts) return toast("أضف منتجًا أولاً", true);
@@ -481,8 +558,17 @@ const actions = {
         if (!f.reportValidity()) return false;
         const d = readForm(f),
           p = find(db.products, d.pid);
+        if (!Number.isInteger(d.qty) || d.qty < 1) {
+          toast("الكمية لازم تكون رقم صحيح", true);
+          return false;
+        }
         if (d.type === "out" && d.qty > p.qty) {
           toast("الكمية أكبر من المتاح في المخزون", true);
+          return false;
+        }
+        const inCart = cart.find((c) => c.pid === p.id)?.qty || 0;
+        if (d.type === "out" && p.qty - d.qty < inCart) {
+          toast(`في فاتورة مفتوحة فيها ${inCart} من الصنف ده، شيلها الأول`, true);
           return false;
         }
         p.qty += d.type === "in" ? d.qty : -d.qty;
@@ -502,7 +588,7 @@ const actions = {
     const pid = $("#sp")?.value,
       qty = +$("#sq").value,
       p = find(db.products, pid);
-    if (!p || !(qty >= 1) || qty > avail(p))
+    if (!p || !Number.isInteger(qty) || qty < 1 || qty > avail(p))
       return toast("تأكد من المنتج والكمية المتاحة", true);
     const line = cart.find((c) => c.pid === pid);
     if (line) line.qty += qty;
@@ -515,6 +601,16 @@ const actions = {
   },
   checkout() {
     if (!cart.length) return toast("الفاتورة فارغة", true);
+    const short = cart.find((c) => {
+      const p = find(db.products, c.pid);
+      return !p || c.qty > p.qty;
+    });
+    if (short) {
+      const p = find(db.products, short.pid);
+      cart = cart.filter((c) => c !== short);
+      show("sales");
+      return toast(`الكمية المتاحة من "${p ? p.name : "صنف محذوف"}" مابقتش كفاية، اتشال من الفاتورة`, true);
+    }
     const inv = sell(cartCust, cart);
     cart = [];
     cartCust = "";
@@ -524,6 +620,31 @@ const actions = {
     viewInvoice(inv.id);
   },
   view: (id) => viewInvoice(id),
+  pcat(id) {
+    pcat = id || "";
+    show("products");
+  },
+  restock: (id) => actions.move(id),
+  csv(kind) {
+    if (kind === "products")
+      download(
+        "makhzon-products.csv",
+        toCsv([["المنتج", "التصنيف", "السعر", "التكلفة", "الكمية", "حد التنبيه"], ...db.products.map((p) => [p.name, p.cat, p.price, p.cost, p.qty, p.min])]),
+        "text/csv;charset=utf-8",
+      );
+    else
+      download(
+        "makhzon-invoices.csv",
+        toCsv([["رقم", "العميل", "التاريخ", "الحالة", "الإجمالي"], ...db.invoices.map((i) => [i.no, invCust(i), i.date, i.status === "done" ? "مكتملة" : "ملغاة", i.total])]),
+        "text/csv;charset=utf-8",
+      );
+    toast("اتحمل الملف");
+  },
+  backup() {
+    download("makhzon-backup-" + dayISO() + ".json", JSON.stringify(db, null, 2), "application/json");
+    toast("اتحملت نسخة احتياطية");
+  },
+  restoreBtn: () => $("#restoreFile")?.click(),
   cancel(id) {
     const i = find(db.invoices, id);
     if (
@@ -531,8 +652,10 @@ const actions = {
       !confirm("إلغاء الفاتورة وإرجاع الكميات للمخزون؟")
     )
       return;
+    let skipped = 0;
     i.items.forEach((l) => {
       const p = find(db.products, l.pid);
+      if (!p) skipped++;
       if (p) {
         p.qty += l.qty;
         db.moves.unshift({
@@ -546,7 +669,7 @@ const actions = {
       }
     });
     i.status = "cancelled";
-    commit("تم إلغاء الفاتورة");
+    commit(skipped ? "اتلغت الفاتورة (فيه صنف محذوف مارجعش للمخزون)" : "تم إلغاء الفاتورة");
   },
   reset() {
     if (confirm("هترجع كل البيانات للوضع التجريبي، متأكد؟")) {
@@ -622,6 +745,7 @@ function drawChart() {
 function show(name) {
   const page = pages[name];
   if (!page) return;
+  if (name !== current) qs = "";
   current = name;
   $("#pageTitle").textContent = page.title;
   $("#pageSubtitle").textContent = page.sub;
@@ -632,6 +756,11 @@ function show(name) {
     if (on) l.setAttribute("aria-current", "page");
     else l.removeAttribute("aria-current");
   });
+  const qEl = $("#q");
+  if (qEl && qs) {
+    qEl.value = qs;
+    applySearch();
+  }
   if (name === "dashboard") drawChart();
 }
 const route = () => {
@@ -648,13 +777,61 @@ view.addEventListener("click", (e) => {
   if (el.dataset.page) location.hash = el.dataset.page;
   else actions[el.dataset.act]?.(el.dataset.id, el);
 });
+function applySearch() {
+  const q = qs.trim().toLowerCase();
+  view
+    .querySelectorAll("tbody tr")
+    .forEach((r) => (r.hidden = !r.textContent.toLowerCase().includes(q)));
+}
 view.addEventListener("input", (e) => {
   if (e.target.id === "q") {
-    const q = e.target.value.trim();
-    view
-      .querySelectorAll("tbody tr")
-      .forEach((r) => (r.hidden = !r.textContent.includes(q)));
+    qs = e.target.value;
+    applySearch();
   } else if (e.target.id === "sc") cartCust = e.target.value;
+});
+view.addEventListener("change", (e) => {
+  if (e.target.id === "ps") {
+    psort = e.target.value;
+    show("products");
+  } else if (e.target.id === "restoreFile") {
+    const file = e.target.files[0];
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const d = JSON.parse(r.result);
+        if (!d || !Array.isArray(d.products)) throw 0;
+        if (!confirm("هيتم استبدال كل البيانات الحالية بالنسخة دي، متأكد؟")) return;
+        localStorage.setItem(KEY, JSON.stringify(d));
+        db = loadDb();
+        cart = [];
+        commit("اتسترجعت البيانات");
+      } catch {
+        toast("الملف مش نسخة احتياطية صالحة", true);
+      }
+    };
+    r.readAsText(file);
+  }
+});
+modalEl.addEventListener("click", (e) => {
+  if (e.target.closest("[data-print]")) window.print();
+});
+window.addEventListener("storage", (e) => {
+  if (e.key !== KEY) return;
+  const d = loadDb();
+  if (d) {
+    db = d;
+    show(current);
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) {
+    const q = $("#q");
+    if (q) {
+      e.preventDefault();
+      q.focus();
+    }
+  }
 });
 document.querySelectorAll(".side-link").forEach((b) =>
   b.addEventListener("click", () => {
@@ -705,5 +882,5 @@ $("#todayDate").textContent = now.toLocaleDateString("ar-EG", {
   year: "numeric",
 });
 $("#currentYear").textContent = now.getFullYear();
-applyTheme(localStorage.getItem("makhzon-theme") || "dark");
+applyTheme(localStorage.getItem("makhzon-theme") || "light");
 route();
