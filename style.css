@@ -653,42 +653,42 @@ button {
   transform: translate(-50%, 0);
 }
 
-/* ===== Classic, laid-back look (warm paper, soft edges, a bit of play) ===== */
+/* ===== Classic, laid-back look (teal + coral, soft edges, a bit of play) ===== */
 :root {
-  --bg: #1f1a16;
-  --sidebar: #29221c;
-  --card: #2d2620;
-  --card-hover: #3a3129;
-  --text: #f5ead9;
-  --muted: #b9a78f;
-  --border: #4a3e33;
-  --accent: #e0a24a;
-  --accent-soft: rgba(224, 162, 74, 0.16);
-  --green: #8fc27a;
-  --orange: #f0b25a;
-  --purple: #c9a0d8;
-  --red: #ee7d6b;
-  --shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
+  --bg: #0f2326;
+  --sidebar: #143034;
+  --card: #18393e;
+  --card-hover: #1f464c;
+  --text: #eafaf6;
+  --muted: #8fb8b3;
+  --border: #2f6064;
+  --accent: #ff7a5c;
+  --accent-soft: rgba(255, 122, 92, 0.16);
+  --green: #5fd49b;
+  --orange: #ffc857;
+  --purple: #b6a0ff;
+  --red: #ff7f7f;
+  --shadow: 3px 3px 0 rgba(0, 0, 0, 0.28);
 }
 [data-theme="light"] {
-  --bg: #f6efe2;
-  --sidebar: #efe4d0;
-  --card: #fffaf0;
-  --card-hover: #f8ecd6;
-  --text: #3b2f25;
-  --muted: #86745f;
-  --border: #d9c8a9;
-  --accent: #b8642f;
-  --accent-soft: #f6dfc8;
-  --green: #4f7f3f;
-  --orange: #b9741c;
-  --purple: #7d5a99;
-  --red: #b94a3a;
-  --shadow: 3px 3px 0 rgba(120, 90, 50, 0.14);
+  --bg: #e6f4f0;
+  --sidebar: #cfe9e2;
+  --card: #fffefb;
+  --card-hover: #fff0e8;
+  --text: #123c3d;
+  --muted: #55797a;
+  --border: #9fcfc5;
+  --accent: #e8503a;
+  --accent-soft: #ffe1d6;
+  --green: #1c8657;
+  --orange: #b87408;
+  --purple: #6a4fb3;
+  --red: #c93a3a;
+  --shadow: 3px 3px 0 rgba(15, 110, 110, 0.16);
 }
 body {
   font-size: 15px;
-  background-image: radial-gradient(rgba(150, 110, 60, 0.07) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(20, 140, 140, 0.09) 1px, transparent 1px);
   background-size: 22px 22px;
 }
 .page-title,
@@ -750,7 +750,7 @@ body {
   border-radius: 12px;
 }
 .custom-table tbody tr:nth-child(even) td {
-  background: rgba(150, 110, 60, 0.05);
+  background: rgba(20, 140, 140, 0.07);
 }
 .stock-count,
 .status-pill,

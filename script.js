@@ -301,7 +301,7 @@ const pages = {
       const low = db.products
         .filter((p) => p.qty <= p.min)
         .sort((a, b) => a.qty - b.qty);
-      return `<div class="welcome-banner"><div><span class="welcome-tag">ملخص المعرض</span><h2>${greeting()} يا معلم 👋</h2><p>${low.length ? `فيه ${low.length} صنف محتاج تشتريه قريب.` : "كل حاجة تحت السيطرة، ولا يهمك."}</p></div><div class="welcome-icon"><i class="bi bi-shop"></i></div></div>
+      return `<div class="welcome-banner"><div><span class="welcome-tag">ملخص المعرض</span><h2>${greeting()} يا معلم</h2><p>${low.length ? `فيه ${low.length} صنف محتاج تشتريه قريب.` : "كل حاجة تحت السيطرة، ولا يهمك."}</p></div><div class="welcome-icon"><i class="bi bi-shop"></i></div></div>
       <div class="row g-3 mb-3">${stat("إجمالي المنتجات", "box-seam", "blue", db.products.length, "منتج مسجل")}
       ${stat(
         "مبيعات اليوم",
@@ -687,8 +687,8 @@ function drawChart() {
   const c = $("#salesChart");
   if (!c || typeof Chart === "undefined") return;
   const dark = document.documentElement.dataset.theme === "dark";
-  const txt = dark ? "#94a3b8" : "#6b778c",
-    grid = dark ? "#273449" : "#e5eaf2";
+  const txt = dark ? "#8fb8b3" : "#55797a",
+    grid = dark ? "#2f6064" : "#cfe6e0";
   const days = [6, 5, 4, 3, 2, 1, 0].map(dayISO);
   Chart.defaults.font.family = "Cairo, Tahoma, sans-serif";
   chart = new Chart(c, {
@@ -706,8 +706,8 @@ function drawChart() {
               (i) => i.total,
             ),
           ),
-          borderColor: "#4f83ff",
-          backgroundColor: "rgba(79,131,255,.12)",
+          borderColor: dark ? "#ff7a5c" : "#e8503a",
+          backgroundColor: dark ? "rgba(255,122,92,.14)" : "rgba(232,80,58,.12)",
           fill: true,
           tension: 0.35,
           borderWidth: 3,
